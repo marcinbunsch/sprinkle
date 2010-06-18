@@ -107,7 +107,7 @@ module Sprinkle
 
     class Package #:nodoc:
       include ArbitraryOptions
-      attr_accessor :name, :provides, :installers, :dependencies, :recommends, :verifications
+      attr_accessor :name, :provides, :installers, :dependencies, :recommends, :verifications, :options
 
       def initialize(name, metadata = {}, &block)
         raise 'No package name supplied' unless name
@@ -119,9 +119,21 @@ module Sprinkle
         @optional = []
         @verifications = []
         @installers = []
+        @block = block
+        @options = {}
         self.instance_eval &block
       end
 
+      # Rebuild takes the block and rebuilds the package when options are passed
+      def rebuild
+        @dependencies = []
+        @recommends = []
+        @optional = []
+        @verifications = []
+        @installers = []
+        self.instance_eval &@block
+      end
+      
       def freebsd_pkg(*names, &block)
         @installers << Sprinkle::Installers::FreebsdPkg.new(self, *names, &block)
       end
@@ -198,7 +210,13 @@ module Sprinkle
       
       def process(deployment, roles)
         return if meta_package?
-
+        
+        # I'm not gonna lie to you - This is a bit of a hack
+        # When I tried defering the execution of the supplied block
+        # I got 55 spec failures, which I did not want to fix until 
+        # I make sure this idea works.
+        rebuild if options != {}
+        
         # Run a pre-test to see if the software is already installed. If so,
         # we can skip it, unless we have the force option turned on!
         unless @verifications.empty? || Sprinkle::OPTIONS[:force]

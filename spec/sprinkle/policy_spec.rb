@@ -22,13 +22,13 @@ describe Sprinkle::Policy do
       p = policy @name, :roles => :app do; end
       p.should respond_to(:requires)
       p.requires :appserver
-      p.packages.should == [ :appserver ]
+      p.packages.should == [[:appserver, {}]]
     end
 
     it 'should optionally accept package dependencies with versions' do
       p = policy @name, :roles => :app do; end
       p.requires :appserver, :version => 2
-      p.packages.should == [ :appserver ]
+      p.packages.should == [[:appserver, {:version=>2}]] 
       pending 'requires version checking implementation'
     end
 
@@ -39,6 +39,30 @@ describe Sprinkle::Policy do
       Sprinkle::Policy::POLICIES.last.should == p
     end
 
+  end
+
+  describe 'packages with options' do
+
+    before do
+      @deployment = mock(Sprinkle::Deployment)
+      Sprinkle::Package::PACKAGES.clear # reset full package list before each spec is run
+      @policy = policy :test, :roles => :app do; end
+    end
+    
+    it "should save the options in the package" do
+      @installer = mock(Sprinkle::Installers::Installer, :defaults => true, :process => true)
+      
+      @e = package :e do
+        version options[:version] || 1
+      end
+      @e.installers = [@installer]
+      @e.version.should == 1
+      @e.should_receive(:dup).and_return(@e)
+      @policy.requires :e, :version => 3
+      @policy.process(@deployment)
+      @e.version.should == 3
+    end
+    
   end
 
   describe 'with packages' do
@@ -57,10 +81,12 @@ describe Sprinkle::Policy do
       $terminal.stub!(:choose).and_return(:c) # stub out highline asking questions
     end
 
+    
     describe 'when applying' do
       include Sprinkle::Package
 
       it 'should determine the packages to install via the hierarchy dependency tree of each package in the policy' do
+        @a.should_receive(:dup).and_return(@a)
         @a.should_receive(:process).and_return
         @b.should_receive(:process).and_return
         @c.should_receive(:process).and_return
@@ -71,10 +97,12 @@ describe Sprinkle::Policy do
         @e = package :e do; requires :b; end
         @policy.requires :e
 
+        @a.should_receive(:dup).and_return(@a)
         @a.should_receive(:process).once.and_return
         @b.should_receive(:process).once.and_return
         @c.should_receive(:process).once.and_return
         @d.should_not_receive(:process)
+        @e.should_receive(:dup).and_return(@e)
         @e.should_receive(:process).once.and_return
       end
     end

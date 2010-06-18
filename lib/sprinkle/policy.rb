@@ -64,7 +64,7 @@ module Sprinkle
       end
 
       def requires(package, options = {})
-        @packages << package
+        @packages << [package, options]
       end
 
       def to_s; name; end
@@ -74,12 +74,18 @@ module Sprinkle
 
         cloud_info "--> Cloud hierarchy for policy #{@name}"
 
-        @packages.each do |p|
+        @packages.each do |arr|
+          p, o = arr
           cloud_info "\nPolicy #{@name} requires package #{p}"
 
           package = Sprinkle::Package::PACKAGES[p]
           raise "Package definition not found for key: #{p}" unless package
           package = select_package(p, package) if package.is_a? Array # handle virtual package selection
+
+          # dup the package so it can have different config in different policies
+          package = package.dup
+          # assign the options
+          package.options = o
 
           tree = package.tree do |parent, child, depth|
             indent = "\t" * depth; cloud_info "#{indent}Package #{parent.name} requires #{child.name}"
