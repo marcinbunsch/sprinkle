@@ -57,10 +57,12 @@ describe Sprinkle::Policy do
       end
       @e.installers = [@installer]
       @e.version.should == 1
-      @e.should_receive(:dup).and_return(@e)
+      @e_duped = @e.dup
+      @e.should_receive(:dup).and_return(@e_duped)
       @policy.requires :e, :version => 3
       @policy.process(@deployment)
-      @e.version.should == 3
+      @e.version.should == 1
+      @e_duped.version.should == 3
     end
     
   end
